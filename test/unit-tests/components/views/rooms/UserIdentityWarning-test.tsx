@@ -6,7 +6,7 @@ Please see LICENSE files in the repository root for full details.
 */
 
 import React from "react";
-import { sleep } from "matrix-js-sdk/src/utils";
+import { sleep, defer } from "matrix-js-sdk/src/utils";
 import {
     EventType,
     MatrixClient,
@@ -23,7 +23,6 @@ import userEvent from "@testing-library/user-event";
 import { stubClient } from "../../../../test-utils";
 import { UserIdentityWarning } from "../../../../../src/components/views/rooms/UserIdentityWarning";
 import MatrixClientContext from "../../../../../src/contexts/MatrixClientContext";
-import { defer } from "../../../../../../matrix-js-sdk/lib/utils";
 
 const ROOM_ID = "!room:id";
 
@@ -40,28 +39,26 @@ function mockRoom(): Room {
 
 function mockMembershipForRoom(room: Room, users: string[] | [string, "joined" | "invited"][]): void {
     const encryptToInvited = room.shouldEncryptForInvitedMembers();
-    jest.spyOn(room, "getEncryptionTargetMembers").mockResolvedValue(
-        users
-            .filter((user) => {
-                if (Array.isArray(user)) {
-                    return encryptToInvited || user[1] === "joined";
-                } else {
-                    return true;
-                }
-            })
-            .map((id) => {
-                if (Array.isArray(id)) {
-                    return mockRoomMember(id[0]);
-                } else {
-                    return mockRoomMember(id);
-                }
-            }),
-    );
+    const members = users
+        .filter((user) => {
+            if (Array.isArray(user)) {
+                return encryptToInvited || user[1] === "joined";
+            } else {
+                return true;
+            }
+        })
+        .map((id) => {
+            if (Array.isArray(id)) {
+                return mockRoomMember(id[0]);
+            } else {
+                return mockRoomMember(id);
+            }
+        });
+
+    jest.spyOn(room, "getEncryptionTargetMembers").mockResolvedValue(members);
+
     jest.spyOn(room, "getMember").mockImplementation((userId) => {
-        if (users.indexOf(userId) !== -1) {
-            return mockRoomMember(userId);
-        }
-        return null;
+        return members.find((member) => member.userId === userId) ?? null;
     });
 }
 
