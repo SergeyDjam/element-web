@@ -9,9 +9,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { EventType, MatrixEvent, Room, RoomStateEvent, RoomMember } from "matrix-js-sdk/src/matrix";
 import { CryptoEvent, CryptoApi } from "matrix-js-sdk/src/crypto-api";
 import { throttle } from "lodash";
+import { logger } from "matrix-js-sdk/src/logger";
 
 import { useMatrixClientContext } from "../../../contexts/MatrixClientContext.tsx";
-import { logger } from "../../../../../matrix-js-sdk/src/logger.ts";
 import { useTypedEventEmitter } from "../../../hooks/useEventEmitter.ts";
 import { ButtonEvent } from "../../views/elements/AccessibleButton.tsx";
 
