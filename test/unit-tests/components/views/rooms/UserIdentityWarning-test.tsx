@@ -141,7 +141,7 @@ describe("UserIdentityWarning", () => {
         jest.spyOn(crypto, "getUserVerificationStatus").mockResolvedValue(
             new UserVerificationStatus(false, false, false, true),
         );
-        crypto.pinCurrentUserIdentity = jest.fn();
+        crypto.pinCurrentUserIdentity = jest.fn().mockResolvedValue(undefined);
         renderComponent(client, room);
 
         await waitFor(() =>
@@ -164,7 +164,7 @@ describe("UserIdentityWarning", () => {
         jest.spyOn(crypto, "getUserVerificationStatus").mockResolvedValue(
             new UserVerificationStatus(false, true, false, true),
         );
-        crypto.withdrawVerificationRequirement = jest.fn();
+        crypto.withdrawVerificationRequirement = jest.fn().mockResolvedValue(undefined);
         renderComponent(client, room);
 
         await waitFor(() =>

@@ -45,7 +45,7 @@ export function useUserIdentityWarningViewModel(room: Room, key: string): UserId
     const crypto = cli.getCrypto();
 
     const [members, setMembers] = useState<RoomMember[]>([]);
-    const [currentPrompt, setPrompt] = useState<ViolationPrompt | undefined>(undefined);
+    const [currentPrompt, setCurrentPrompt] = useState<ViolationPrompt | undefined>(undefined);
 
     const loadViolations = useMemo(
         () =>
@@ -53,24 +53,25 @@ export function useUserIdentityWarningViewModel(room: Room, key: string): UserId
                 const isEncrypted = crypto && (await crypto.isEncryptionEnabledInRoom(room.roomId));
                 if (!isEncrypted) {
                     setMembers([]);
-                    setPrompt(undefined);
+                    setCurrentPrompt(undefined);
                     return;
                 }
 
                 const targetMembers = await room.getEncryptionTargetMembers();
                 setMembers(targetMembers);
-                const violations = await mapToViolations(crypto!, targetMembers);
+                const violations = await mapToViolations(crypto, targetMembers);
 
                 let candidatePrompt: ViolationPrompt | undefined;
                 if (violations.length > 0) {
                     // sort by user ID to ensure consistent ordering
-                    candidatePrompt = violations.sort((a, b) => a.member.userId.localeCompare(b.member.userId))[0];
+                    const sortedViolations = violations.sort((a, b) => a.member.userId.localeCompare(b.member.userId));
+                    candidatePrompt = sortedViolations[0];
                 } else {
                     candidatePrompt = undefined;
                 }
 
                 // is the current prompt still valid?
-                setPrompt((existingPrompt): ViolationPrompt | undefined => {
+                setCurrentPrompt((existingPrompt): ViolationPrompt | undefined => {
                     if (existingPrompt && violations.includes(existingPrompt)) {
                         return existingPrompt;
                     } else if (candidatePrompt) {
@@ -102,8 +103,6 @@ export function useUserIdentityWarningViewModel(room: Room, key: string): UserId
                 // someone changed their display name. Anyhow let's refresh.
                 const userId = event.getStateKey();
                 shouldRefresh = !!userId;
-            } else {
-                shouldRefresh = false;
             }
 
             if (shouldRefresh) {
@@ -138,17 +137,22 @@ export function useUserIdentityWarningViewModel(room: Room, key: string): UserId
         });
     }, [loadViolations]);
 
-    let onButtonClick: (ev: ButtonEvent) => void = async (ev: ButtonEvent) => {};
+    let onButtonClick: (ev: ButtonEvent) => void = () => {};
     if (currentPrompt) {
-        onButtonClick = async (ev: ButtonEvent): Promise<void> => {
+        onButtonClick = (ev: ButtonEvent): void => {
             // XXX do we want some posthog tracking?
+            if (!crypto) {
+                return;
+            }
             ev.preventDefault();
-            if (currentPrompt) {
-                if (currentPrompt.type === "VerificationViolation") {
-                    await crypto?.withdrawVerificationRequirement(currentPrompt.member.userId);
-                } else if (currentPrompt.type === "PinViolation") {
-                    await crypto?.pinCurrentUserIdentity(currentPrompt.member.userId);
-                }
+            if (currentPrompt.type === "VerificationViolation") {
+                crypto.withdrawVerificationRequirement(currentPrompt.member.userId).catch((e) => {
+                    logger.error("Error withdrawing verification requirement:", e);
+                });
+            } else if (currentPrompt.type === "PinViolation") {
+                crypto.pinCurrentUserIdentity(currentPrompt.member.userId).catch((e) => {
+                    logger.error("Error withdrawing verification requirement:", e);
+                });
             }
         };
     }
